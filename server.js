@@ -5,6 +5,7 @@ const path = require('path');
 const cors = require('cors');
 const messageRoutes = require('./routes/messages');
 const { initDb } = require('./config/database');
+const Message = require('./models/Message');
 
 const app = express();
 const server = http.createServer(app);
@@ -30,9 +31,17 @@ app.use('/api/messages', messageRoutes);
 io.on('connection', (socket) => {
   console.log('Новый пользователь подключился:', socket.id);
 
-  socket.on('send_message', (data) => {
-    // Сохраняем сообщение и рассылаем всем
-    io.emit('receive_message', data);
+  socket.on('send_message', async (data) => {
+    try {
+      // Сохраняем сообщение в БД
+      const savedMessage = await Message.create(data);
+      
+      // Отправляем сообщение всем подключенным клиентам
+      io.emit('receive_message', savedMessage);
+    } catch (error) {
+      console.error('Ошибка сохранения сообщения:', error);
+      socket.emit('error', { message: 'Не удалось отправить сообщение' });
+    }
   });
 
   socket.on('disconnect', () => {
